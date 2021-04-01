@@ -12,13 +12,13 @@
 //! # use metrics_util::DebuggingRecorder;
 //! # use tracing_subscriber::Registry;
 //! use metrics_util::layers::Layer;
-//! use tracing_subscriber::layer::SubscriberExt;
-//! use metrics_tracing_context::{MetricsLayer, TracingContextLayer};
+//! use tracing_subscriber::prelude::*;
+//! use metrics_tracing_context::{MetricsSubscriber, TracingContextLayer};
 //!
 //! // Prepare tracing.
-//! # let mysubscriber = Registry::default();
-//! let subscriber = mysubscriber.with(MetricsLayer::new());
-//! tracing::subscriber::set_global_default(subscriber).unwrap();
+//! # let mycollector = Registry::default();
+//! let collector = mycollector.with(MetricsSubscriber::new());
+//! tracing::collect::set_global_default(collector).unwrap();
 //!
 //! // Prepare metrics.
 //! # let myrecorder = DebuggingRecorder::new();
@@ -30,11 +30,11 @@
 //!
 //! ```rust
 //! # use metrics_util::{layers::Layer, DebuggingRecorder};
-//! # use tracing_subscriber::{layer::SubscriberExt, Registry};
-//! # use metrics_tracing_context::{MetricsLayer, TracingContextLayer};
-//! # let mysubscriber = Registry::default();
-//! # let subscriber = mysubscriber.with(MetricsLayer::new());
-//! # tracing::subscriber::set_global_default(subscriber).unwrap();
+//! # use tracing_subscriber::{prelude::*, Registry};
+//! # use metrics_tracing_context::{MetricsSubscriber, TracingContextLayer};
+//! # let mycollector = Registry::default();
+//! # let collector = mycollector.with(MetricsSubscriber::new());
+//! # tracing::collect::set_global_default(collector).unwrap();
 //! # let myrecorder = DebuggingRecorder::new();
 //! # let recorder = TracingContextLayer::all().layer(myrecorder);
 //! # metrics::set_boxed_recorder(Box::new(recorder)).unwrap();
@@ -63,7 +63,7 @@ pub mod label_filter;
 mod tracing_integration;
 
 pub use label_filter::LabelFilter;
-pub use tracing_integration::{Labels, MetricsLayer, SpanExt};
+pub use tracing_integration::{Labels, MetricsSubscriber, SpanExt};
 
 /// [`TracingContextLayer`] provides an implementation of a [`Layer`][metrics_util::layers::Layer]
 /// for [`TracingContext`].

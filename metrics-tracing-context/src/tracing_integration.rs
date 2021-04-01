@@ -1,10 +1,10 @@
 //! The code that integrates with the `tracing` crate.
 
 use metrics::Label;
-use std::{any::TypeId, marker::PhantomData};
+use std::{any::TypeId, marker::PhantomData, ptr::NonNull};
 use tracing_core::span::{Attributes, Id, Record};
-use tracing_core::{field::Visit, Dispatch, Field, Subscriber};
-use tracing_subscriber::{layer::Context, registry::LookupSpan, Layer};
+use tracing_core::{collect::Collect, field::Visit, Dispatch, Field};
+use tracing_subscriber::{registry::LookupSpan, subscribe::Context, Subscribe};
 
 /// Per-span extension for collecting labels from fields.
 ///
@@ -73,19 +73,19 @@ impl WithContext {
     }
 }
 
-/// [`MetricsLayer`] is a [`tracing_subscriber::Layer`] that captures the span
+/// [`MetricsSubscriber`] is a [`tracing_subscriber::Subscribe`] that captures the span
 /// fields and allows them to be later on used as metrics labels.
-pub struct MetricsLayer<S> {
+pub struct MetricsSubscriber<S> {
     ctx: WithContext,
     _subscriber: PhantomData<fn(S)>,
     _priv: (),
 }
 
-impl<S> MetricsLayer<S>
+impl<S> MetricsSubscriber<S>
 where
-    S: Subscriber + for<'span> LookupSpan<'span>,
+    S: Collect + for<'span> LookupSpan<'span>,
 {
-    /// Create a new `MetricsLayer`.
+    /// Create a new `MetricsSubscriber`.
     pub fn new() -> Self {
         let ctx = WithContext {
             with_labels: Self::with_labels,
@@ -118,9 +118,9 @@ where
     }
 }
 
-impl<S> Layer<S> for MetricsLayer<S>
+impl<S> Subscribe<S> for MetricsSubscriber<S>
 where
-    S: Subscriber + for<'a> LookupSpan<'a>,
+    S: Collect + for<'a> LookupSpan<'a>,
 {
     fn new_span(&self, attrs: &Attributes<'_>, id: &Id, cx: Context<'_, S>) {
         let span = cx.span(id).expect("span must already exist!");
@@ -128,10 +128,10 @@ where
         span.extensions_mut().insert(labels);
     }
 
-    unsafe fn downcast_raw(&self, id: TypeId) -> Option<*const ()> {
+    unsafe fn downcast_raw(&self, id: TypeId) -> Option<NonNull<()>> {
         match id {
-            id if id == TypeId::of::<Self>() => Some(self as *const _ as *const ()),
-            id if id == TypeId::of::<WithContext>() => Some(&self.ctx as *const _ as *const ()),
+            id if id == TypeId::of::<Self>() => Some(NonNull::from(self).cast()),
+            id if id == TypeId::of::<WithContext>() => Some(NonNull::from(&self.ctx).cast()),
             _ => None,
         }
     }
@@ -150,9 +150,9 @@ impl SpanExt for tracing::Span {
     where
         F: FnMut(&Vec<Label>),
     {
-        self.with_subscriber(|(id, subscriber)| {
-            if let Some(ctx) = subscriber.downcast_ref::<WithContext>() {
-                ctx.with_labels(subscriber, id, &mut f)
+        self.with_collector(|(id, collector)| {
+            if let Some(ctx) = collector.downcast_ref::<WithContext>() {
+                ctx.with_labels(collector, id, &mut f)
             }
         });
     }

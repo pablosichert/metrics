@@ -1,10 +1,10 @@
 use metrics::{counter, KeyData, Label};
-use metrics_tracing_context::{LabelFilter, MetricsLayer, TracingContextLayer};
+use metrics_tracing_context::{LabelFilter, MetricsSubscriber, TracingContextLayer};
 use metrics_util::{layers::Layer, DebugValue, DebuggingRecorder, MetricKind, Snapshotter};
 use parking_lot::{const_mutex, Mutex, MutexGuard};
-use tracing::dispatcher::{set_default, DefaultGuard, Dispatch};
 use tracing::{span, Level};
-use tracing_subscriber::{layer::SubscriberExt, Registry};
+use tracing_core::dispatch::{set_default, DefaultGuard, Dispatch};
+use tracing_subscriber::{prelude::*, Registry};
 
 static TEST_MUTEX: Mutex<()> = const_mutex(());
 
@@ -18,7 +18,7 @@ where
     F: LabelFilter + Clone + 'static,
 {
     let test_mutex_guard = TEST_MUTEX.lock();
-    let subscriber = Registry::default().with(MetricsLayer::new());
+    let subscriber = Registry::default().with(MetricsSubscriber::new());
     let tracing_guard = set_default(&Dispatch::new(subscriber));
 
     let recorder = DebuggingRecorder::new();
